@@ -15,14 +15,22 @@
 typedef struct file_info {
     char* filename;
     int fd;
-    char* f_ptr;
+    char* username;
 } file_info;
 
-typedef struct directory {
-    file_info usr_files[MAX_FILES];
-    char* username;
-    char* dir_ptr; // start of dir in disk
-} directory;
+typedef struct file_table {
+    file_info files[MAX_FILES];
+    int num_files;
+} file_table;
+
+int main(){
+
+
+
+
+    return 0;
+}
+
 
 // Function allocating space on linux virtual disk for the filetable
 int create_disk(){
@@ -43,16 +51,29 @@ int create_disk(){
     return fd;
 }
 
-file_info assign_directory(){
-    directory usr_dir;
-    usr_dir->dir_ptr = ;
-    usr_dir->username = getpwuid(getuid())->pw_name;
+int open_file(char* filename, file_table file_table){
+    if (file_table.num_files == MAX_FILES){
+        printf("File table full.");
+        return -1;
+    }
+    
+    int fd = open(filename, O_RDWR);
+    if (fd == -1){
+        printf("%s\n", strerror(errno));
+    }
 
+    ftruncate(fd, FILE_SIZE * BLOCK_SIZE);
 
-    return usr_dir;
+    file_table.files[file_table.num_files - 1]->filename = filename;
+    file_table.files[file_table.num_files - 1].fd = fd;
+    file_table.files[file_table.num_files - 1]->username = getpwuid(getuid())->pw_name;
+
+    // Add check for space on files.dat
+
+    
+    return fd;
 }
 
-int open_file(char* filename){
-
+list_files(){
 
 }
