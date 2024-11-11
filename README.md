@@ -15,9 +15,10 @@ Implement a stateful server using Sun RPC protocol
 **General Questions/Concerns**
 * What does assigning a directory to each user entail?
 * How do I have the server only using the virtual disk memory from linux file?
+* In seek_file, how is the location specified? Is it an offset?
 
 
 
 **Assumptions**
 * Just going to implement user directory as a list of file descriptors assigned to each user 
-
+* Assume seek_position uses an offset as a specifier
