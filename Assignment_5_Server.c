@@ -14,8 +14,8 @@
 // Data structure for file info
 typedef struct file_info {
     char* filename;
-    int fd;
     char* username;
+    int fd;
 } file_info;
 
 typedef struct file_table {
@@ -74,15 +74,27 @@ int open_file(char* filename, file_table file_table){
     return fd;
 }
 
-int write_file(file_info usr_file){
+int write_file(file_info usr_file, const void* buffer, int buf_size){
 
-    return 0;
+    int num_bytes = write(usr_file.fd, buffer, buf_size);
+    if (num_bytes = -1){
+        printf("%s", strerror(errno));
+        return -1;
+    }
+    return num_bytes;
 }
 
 
-int read_file(file_info usr_file){
+int read_file(file_info usr_file, void* buffer, int count){
+    int num_bytes = read(usr_file.fd, buffer, count);
+    if (num_bytes = -1){
+        printf("%s", strerror(errno));
+        return -1;
+    }
+    return num_bytes;
 
-    return 0;
+    //Make sure this is returning proper error if trying to read past the
+    // end of le, le descriptor passed was not correct,
 }
 
 // TODO: Check that an int is compatible with lseek
@@ -99,9 +111,15 @@ void list_files(char* username, file_table file_table){
 }
 
 void delete_file(file_info usr_file){
-
+    int result = remove(usr_file.filename);
+    if (result == -1){
+        printf("%s", strerror(errno));
+    }
 }
 
 void close_file(file_info usr_file){
-
+    int result = close(usr_file.fd);
+    if (result == -1){
+        printf("%s", strerror(errno));
+    }
 }
