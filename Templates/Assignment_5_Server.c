@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "ssnfs.h"
 
 
 #define MAX_FILES 20

@@ -16,6 +16,8 @@ Implement a stateful server using Sun RPC protocol
 * What does assigning a directory to each user entail?
 * How do I have the server only using the virtual disk memory from linux file?
 * In seek_file, how is the location specified? Is it an offset?
+* How do I return an error to the client?
+* How do I run both the client and server on the same machine?
 
 
 
