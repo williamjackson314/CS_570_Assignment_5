@@ -43,19 +43,19 @@ open_file_1_svc(open_input *argp, struct svc_req *rqstp)
 {
 	static open_output  result;
 
-	// TODO Error checking for file opening
-	// if (server_file_table.num_files == MAX_FILES){
-    //     printf("File table full.");
-    //     return -1;
-    // }
+	if (server_file_table.num_files == MAX_FILES){
+        sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+    }
 	
 	server_file_table.num_files++;
     
+	// TODO Check if username matches for permissions to open file 
     result.fd = open((* argp).file_name, O_RDWR);
 
-    // if (result.fd == -1){
-    //     printf("%s\n", strerror(errno));
-    // }
+	// FIXME Make sure it is okay to use -1 as the fd in result
+    if (result.fd == -1){
+        sprintf(result.out_msg.out_msg_val, "%s",strerror(errno));
+    }
 
     ftruncate(result.fd, FILE_SIZE * BLOCK_SIZE);
 
@@ -80,13 +80,13 @@ read_file_1_svc(read_input *argp, struct svc_req *rqstp)
 {
 	static read_output  result;
 
+	// TODO Check if username matches for permissions purposes
     int num_bytes = read((* argp).fd, result.buffer.buffer_val, (* argp).numbytes);
 
-	// TODO Error checking
-    // if (num_bytes = -1){
-    //     printf("%s", strerror(errno));
-    //     return -1;
-    // }
+	// FIXME Make sure don't need to return any more info to client
+    if (num_bytes = -1){
+        sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+    }
 
 
     // TODO Make sure this is returning proper error if trying to read past the
@@ -95,15 +95,15 @@ read_file_1_svc(read_input *argp, struct svc_req *rqstp)
 	return &result;
 }
 
+// TODO Implement write file function
 write_output *
 write_file_1_svc(write_input *argp, struct svc_req *rqstp)
 {
 	static write_output  result;
 
-	/*
-	 * insert server code here
-	 */
+	// TODO Check if username matches for permissions purposes
 
+	write(argp->fd, argp->buffer.buffer_val, argp->numbytes);
 	return &result;
 }
 
@@ -112,9 +112,11 @@ list_files_1_svc(list_input *argp, struct svc_req *rqstp)
 {
 	static list_output  result;
 
-	/*
-	 * insert server code here
-	 */
+	for (int i=0;i<server_file_table.num_files;i++){
+        if (strcmp(server_file_table.files[i].user_name, argp->user_name) == 0){
+            sprintf(result.out_msg.out_msg_val, "%s", server_file_table.files[i].file_name); //FIXME Append to out_msg instead of just overwriting everytime
+        }
+    }
 
 	return &result;
 }
@@ -124,9 +126,11 @@ delete_file_1_svc(delete_input *argp, struct svc_req *rqstp)
 {
 	static delete_output  result;
 
-	/*
-	 * insert server code here
-	 */
+	// TODO Check if username matches for permissions purposes
+    int val = remove(argp->file_name);
+    if (val == -1){
+        sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+    }
 
 	return &result;
 }
@@ -136,9 +140,11 @@ close_file_1_svc(close_input *argp, struct svc_req *rqstp)
 {
 	static close_output  result;
 
-	/*
-	 * insert server code here
-	 */
+	// TODO Check if username matches for permissions purposes
+    int val = close(argp->fd);
+    if (val == -1){
+        sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+    }
 
 	return &result;
 }
@@ -148,9 +154,8 @@ seek_position_1_svc(seek_input *argp, struct svc_req *rqstp)
 {
 	static seek_output  result;
 
-	/*
-	 * insert server code here
-	 */
+	// TODO Check if username matches for permissions purposes
+	lseek(argp->fd, argp->position, SEEK_CUR);
 
 	return &result;
 }

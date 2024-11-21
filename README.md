@@ -3,8 +3,8 @@ Implement a stateful server using Sun RPC protocol
 
 
 **Unfinished**
-* open_file assuming each user only opens 1 file
-* open_file assuming arbitrary number of files
+* Implement full error checking for each server function
+* Set the out msg length values for each server function
 
 
 
@@ -18,6 +18,7 @@ Implement a stateful server using Sun RPC protocol
 * In seek_file, how is the location specified? Is it an offset?
 * How do I return an error to the client?
 * How do I run both the client and server on the same machine?
+* What val should I write to the 'success' field for the various types?
 
 
 

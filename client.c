@@ -5,66 +5,134 @@
  */
 
 #include "ssnfs.h"
+#include <sys/types.h>
+#include <unistd.h>
+#include <pwd.h>
 
+CLIENT *clnt;
 
 void
 ssnfsprog_1(char *host)
 {
-	CLIENT *clnt;
-	open_output  *result_1;
-	open_input  open_file_1_arg;
-	read_output  *result_2;
-	read_input  read_file_1_arg;
-	write_output  *result_3;
-	write_input  write_file_1_arg;
-	list_output  *result_4;
-	list_input  list_files_1_arg;
-	delete_output  *result_5;
-	delete_input  delete_file_1_arg;
-	close_output  *result_6;
-	close_input  close_file_1_arg;
-	seek_output  *result_7;
-	seek_input  seek_position_1_arg;
-
-#ifndef	DEBUG
 	clnt = clnt_create (host, SSNFSPROG, SSNFSVER, "udp");
 	if (clnt == NULL) {
 		clnt_pcreateerror (host);
 		exit (1);
 	}
-#endif	/* DEBUG */
+}
+
+
+int Open(char* file_to_open){
+	open_output  *result_1;
+	open_input  open_file_1_arg;
+
+  	strcpy(open_file_1_arg.user_name, (getpwuid(getuid()))->pw_name);
+  	strcpy(open_file_1_arg.file_name,file_to_open);
 
 	result_1 = open_file_1(&open_file_1_arg, clnt);
 	if (result_1 == (open_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
+	printf(" File name is %s\n", result_1->out_msg.out_msg_val);
+	
+	return result_1->fd;
+}
+
+int Read(int file_descriptor, char* buf, int numBytes){
+	read_output  *result_2;
+	read_input  read_file_1_arg;
+
+  	strcpy(read_file_1_arg.user_name, (getpwuid(getuid()))->pw_name);
+	read_file_1_arg.fd = file_descriptor;
+	read_file_1_arg.numbytes = numBytes;
+
 	result_2 = read_file_1(&read_file_1_arg, clnt);
 	if (result_2 == (read_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
+
+	strcpy(buf, result_2->buffer.buffer_val);
+	//TODO return the number of bytes read
+	
+}
+
+int Write(int file_descriptor, char* msg, int msgLen){
+	write_output  *result_3;
+	write_input  write_file_1_arg;
+  	
+	strcpy(write_file_1_arg.user_name, (getpwuid(getuid()))->pw_name);
+	write_file_1_arg.fd = file_descriptor;
+	//TODO Figure out what goes in the buffer_len field
+	write_file_1_arg.numbytes = msgLen;
+	strcpy(write_file_1_arg.buffer.buffer_val, msg);
+	
 	result_3 = write_file_1(&write_file_1_arg, clnt);
 	if (result_3 == (write_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
+
+	//TODO Return error message on a fail
+}
+
+
+int List(){
+	list_output  *result_4;
+	list_input  list_files_1_arg;
+	
+	strcpy(list_files_1_arg.user_name, (getpwuid(getuid()))->pw_name);
 	result_4 = list_files_1(&list_files_1_arg, clnt);
 	if (result_4 == (list_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
+
+	//TODO Figure out what list returns
+}
+
+int Delete(char* file_to_delete){
+	delete_output  *result_5;
+	delete_input  delete_file_1_arg;
+	
+	strcpy(delete_file_1_arg.file_name, file_to_delete);
+	strcpy(delete_file_1_arg.user_name, (getpwuid(getuid()))->pw_name);
+	
 	result_5 = delete_file_1(&delete_file_1_arg, clnt);
 	if (result_5 == (delete_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
+
+	//TODO Figure out what delete returns
+}
+
+int Close(int file_descriptor) {
+	close_output  *result_6;
+	close_input  close_file_1_arg;
+
+
+	strcpy(close_file_1_arg.user_name, (getpwuid(getuid()))->pw_name);
+	close_file_1_arg.fd = file_descriptor;
+
 	result_6 = close_file_1(&close_file_1_arg, clnt);
 	if (result_6 == (close_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
+
+	//TODO Figure out what close returns
+}
+
+int Seek(int file_descriptor, int pos){
+	seek_output  *result_7;
+	seek_input  seek_position_1_arg;
+
+	strcpy(seek_position_1_arg.user_name, (getpwuid(getuid()))->pw_name);
+	seek_position_1_arg.fd = file_descriptor;
+	seek_position_1_arg.position = pos;
+
 	result_7 = seek_position_1(&seek_position_1_arg, clnt);
 	if (result_7 == (seek_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
-#ifndef	DEBUG
-	clnt_destroy (clnt);
-#endif	 /* DEBUG */
+
+	//TODO Figure out what seek returns
 }
 
 
@@ -79,5 +147,31 @@ main (int argc, char *argv[])
 	}
 	host = argv[1];
 	ssnfsprog_1 (host);
+
+	// SAMPLE CODE FROM PROJECT DESCRIPTION
+	// ------------------------------------------------
+	int i,j;
+	int fd1,fd2;
+	char buffer[100];
+	fd1=Open("File1"); // opens the file "File1"
+	for (i=0; i< 20;i++){
+	Write(fd1, "This is a test program for cs570 assignment 4", 15);
+	}
+	Close(fd1);
+	fd2=Open("File1");
+	for (j=0; j< 20;j++){
+	Read(fd2, buffer, 10);
+	printf("%s\n",buffer);
+	}
+	Seek (fd2,40);
+	Read(fd2, buffer, 20);
+	printf("%s\n",buffer);
+	Close(fd2);
+	Delete("File1");
+	List();
+	// ------------------------------------------------
+
+
+
 exit (0);
 }
