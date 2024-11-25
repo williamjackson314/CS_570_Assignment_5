@@ -64,7 +64,9 @@ int Write(int file_descriptor, char* msg, int msgLen){
 	write_file_1_arg.fd = file_descriptor;
 	//TODO Figure out what goes in the buffer_len field
 	write_file_1_arg.numbytes = msgLen;
-	strcpy(write_file_1_arg.buffer.buffer_val, msg);
+	
+	write_file_1_arg.buffer.buffer_val = (char *) malloc(msgLen);
+	strncpy(write_file_1_arg.buffer.buffer_val, msg, msgLen);
 	
 	result_3 = write_file_1(&write_file_1_arg, clnt);
 	if (result_3 == (write_output *) NULL) {
@@ -75,7 +77,7 @@ int Write(int file_descriptor, char* msg, int msgLen){
 }
 
 
-int List(){
+void List(){
 	list_output  *result_4;
 	list_input  list_files_1_arg;
 	
@@ -85,10 +87,11 @@ int List(){
 		clnt_perror (clnt, "call failed");
 	}
 
+	printf("Files in directory: %s", result_4->out_msg.out_msg_val);
 	//TODO Figure out what list returns
 }
 
-int Delete(char* file_to_delete){
+void Delete(char* file_to_delete){
 	delete_output  *result_5;
 	delete_input  delete_file_1_arg;
 	
@@ -100,10 +103,10 @@ int Delete(char* file_to_delete){
 		clnt_perror (clnt, "call failed");
 	}
 
-	//TODO Figure out what delete returns
+	//TODO call to free or realloc to release mem
 }
 
-int Close(int file_descriptor) {
+void Close(int file_descriptor) {
 	close_output  *result_6;
 	close_input  close_file_1_arg;
 
@@ -116,7 +119,7 @@ int Close(int file_descriptor) {
 		clnt_perror (clnt, "call failed");
 	}
 
-	//TODO Figure out what close returns
+	//TODO Figure out if close returns anything
 }
 
 int Seek(int file_descriptor, int pos){
@@ -154,21 +157,21 @@ main (int argc, char *argv[])
 	int fd1,fd2;
 	char buffer[100];
 	fd1=Open("File1"); // opens the file "File1"
-	for (i=0; i< 20;i++){
+	//for (i=0; i< 20;i++){
 	Write(fd1, "This is a test program for cs570 assignment 4", 15);
-	}
-	Close(fd1);
-	fd2=Open("File1");
-	for (j=0; j< 20;j++){
-	Read(fd2, buffer, 10);
-	printf("%s\n",buffer);
-	}
-	Seek (fd2,40);
-	Read(fd2, buffer, 20);
-	printf("%s\n",buffer);
-	Close(fd2);
-	Delete("File1");
-	List();
+	//}
+	// Close(fd1);
+	// fd2=Open("File1");
+	// for (j=0; j< 20;j++){
+	// Read(fd2, buffer, 10);
+	// printf("%s\n",buffer);
+	// }
+	// Seek (fd2,40);
+	// Read(fd2, buffer, 20);
+	// printf("%s\n",buffer);
+	// Close(fd2);
+	// Delete("File1");
+	// List();
 	// ------------------------------------------------
 
 

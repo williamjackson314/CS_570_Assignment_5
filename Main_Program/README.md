@@ -3,8 +3,9 @@ Implement a stateful server using Sun RPC protocol
 
 
 **Unfinished**
-* Implement full error checking for each server function
-* Set the out msg length values for each server function
+* Read works for stateless server
+* Write works for stateless server
+
 
 
 
@@ -19,6 +20,8 @@ Implement a stateful server using Sun RPC protocol
 * How do I return an error to the client?
 * How do I run both the client and server on the same machine?
 * What val should I write to the 'success' field for the various types?
+* How do I specify what port/ip to run the server at in the client?
+* How do I initialize the file table?
 
 
 

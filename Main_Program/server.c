@@ -18,7 +18,7 @@
 #define MAX_FILES 20
 #define BLOCK_SIZE 512
 #define FILE_SIZE 64    // Blocks
-#define FILE_DISK_SIZE (FILE_SIZE * BLOCK_SIZE * MAX_FILES)
+#define FILE_SIZE_BYTES (FILE_SIZE * BLOCK_SIZE * MAX_FILES)
 #define LATEST_FILE server_file_table.files[server_file_table.num_files - 1]
 
 // Data structure for file info
@@ -33,7 +33,7 @@ typedef struct file_table {
     int num_files;
 } file_table;
 
-file_table server_file_table;
+file_table server_file_table; //= {.files[0] = (char *) malloc(MAX_FILES*sizeof(file_info)), .num_files = 0};
 // --------------------------------------------------------------------
 
 
@@ -48,16 +48,15 @@ open_file_1_svc(open_input *argp, struct svc_req *rqstp)
     }
 	
 	server_file_table.num_files++;
-    
-	// TODO Check if username matches for permissions to open file 
-    result.fd = open((* argp).file_name, O_RDWR);
 
-	// FIXME Make sure it is okay to use -1 as the fd in result
-    if (result.fd == -1){
-        sprintf(result.out_msg.out_msg_val, "%s",strerror(errno));
-    }
-
-    ftruncate(result.fd, FILE_SIZE * BLOCK_SIZE);
+	result.fd=20; //TODO Figure out what to put here
+	result.out_msg.out_msg_len=20; //TODO Figure out where this number came from
+	
+	free(result.out_msg.out_msg_val);
+	result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
+    strcpy(result.out_msg.out_msg_val, (*argp).file_name);
+	printf("In server: filename recieved:%s\n",argp->file_name);
+	printf("In server username received:%s\n",argp->user_name);
 
 	// FIXME: result.out_msg.out_msg_val = ???; Figure out how to set out message length
 	// FIXME strcpy(result.out_msg.out_msg_val, (*argp).file_name);
@@ -65,13 +64,15 @@ open_file_1_svc(open_input *argp, struct svc_req *rqstp)
 
 
 	// FIXME: make sure argument types correct for strcpy 
-    strcpy(server_file_table.files[server_file_table.num_files - 1].file_name, (*argp).file_name);
-    server_file_table.files[server_file_table.num_files - 1].fd = result.fd;
-    strcpy(server_file_table.files[server_file_table.num_files - 1].user_name, getpwuid(getuid())->pw_name);
+    // strcpy(server_file_table.files[server_file_table.num_files - 1].file_name, (*argp).file_name);
+    // server_file_table.files[server_file_table.num_files - 1].fd = result.fd;
+    // strcpy(server_file_table.files[server_file_table.num_files - 1].user_name, getpwuid(getuid())->pw_name);
 
-    //TODO: Add check for space on files.dat
+	// strcpy(server_file_table.files[0].file_name, (*argp).file_name);
+    // server_file_table.files[0].fd = result.fd;
+    // strcpy(server_file_table.files[0].user_name, getpwuid(getuid())->pw_name);
 
-
+	// printf("File %s added to file table", server_file_table.files[0].file_name);
 	return &result;
 }
 
@@ -102,8 +103,13 @@ write_file_1_svc(write_input *argp, struct svc_req *rqstp)
 	static write_output  result;
 
 	// TODO Check if username matches for permissions purposes
+	printf("Attempting to write to file.");
+	int bytes_written = write(argp->fd, argp->buffer.buffer_val, argp->numbytes);
+	if (bytes_written == -1){
+		result.out_msg.out_msg_len = sizeof(strerror(errno));
+		sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+	}
 
-	write(argp->fd, argp->buffer.buffer_val, argp->numbytes);
 	return &result;
 }
 
