@@ -16,64 +16,161 @@
 #include <pwd.h>
 
 #define MAX_FILES 20
+#define MAX_OPEN_FILES 10
 #define BLOCK_SIZE 512
-#define FILE_SIZE 64    // Blocks
-#define FILE_SIZE_BYTES (FILE_SIZE * BLOCK_SIZE * MAX_FILES)
+#define FILE_SIZE_BLOCKS 64    // Blocks
+#define FILE_SIZE_BYTES (FILE_SIZE_BLOCKS * BLOCK_SIZE)
+#define TOTAL_FILE_SIZE (FILE_SIZE_BYTES * MAX_FILES)
 #define LATEST_FILE server_file_table.files[server_file_table.num_files - 1]
 
 // Data structure for file info
 typedef struct file_info {
 	char user_name[USER_NAME_SIZE];
 	char file_name[FILE_NAME_SIZE];
-    int fd;
+	int start_block;
 } file_info;
 
+typedef struct file_table_entry{
+	char user_name[USER_NAME_SIZE];
+	char file_name[FILE_NAME_SIZE];
+	int fd;
+	int fptr;
+} file_table_entry;
+
 typedef struct file_table {
-    file_info files[MAX_FILES];
-    int num_files;
+    file_table_entry files[MAX_OPEN_FILES];
 } file_table;
 
-file_table server_file_table; //= {.files[0] = (char *) malloc(MAX_FILES*sizeof(file_info)), .num_files = 0};
+file_table server_file_table;
+int num_open_files = 0;
+int files_fd = 0;
 // --------------------------------------------------------------------
 
+void init_disk(){
+	if ((access("files.dat", F_OK) == 0) && (access("files_metadata.dat", F_OK) == 0)) {}
+	else {
+		ftruncate(creat("files.dat", 0666), TOTAL_FILE_SIZE);
+		ftruncate(creat("metadata.dat", 0666), sizeof(file_info) * MAX_FILES);
+	}
+}
 
+int file_exists(char* file_name, char* user_name, file_info* fi){
+
+	int exists = 0;
+	int meta_fd = open("metadata.dat", O_RDONLY );
+	while (read(meta_fd, fi, sizeof(fi)) > 0){	
+		if ((strcmp(fi->user_name, user_name) == 0) && (strcmp(fi->file_name, file_name) == 0)){
+			exists = 1;
+			printf("File Exists");
+			fflush(stdout);
+		}
+	}
+
+	close(meta_fd); //TODO error checking on close
+	return exists;
+}
+
+void print_file_table(file_table ft){
+	
+	printf("File Table: \n");
+	for (int i=0;i<num_open_files;i++){
+		printf("--------------------------------------------------\n");
+		printf("File Name: %s\n", ft.files[i].file_name);
+		printf("User Name: %s\n", ft.files[i].user_name);
+		printf("File Descriptor: %d\n", ft.files[i].fd);
+		printf("File Pointer: %d\n", ft.files[i].fptr);
+
+	}
+}
+
+//BUG Does not work, causes seg fault
+void print_metadata(){
+	int meta_fd = open("metadata.dat", O_RDONLY);
+	char* buf;
+	if (num_open_files > 0){
+		int bytes_read = read(meta_fd, buf, num_open_files*sizeof(file_info));
+		
+		printf("Bytes read: %d", bytes_read);
+		fflush(stdout);
+		if (bytes_read > 0){
+			printf("%.*s", bytes_read, buf);
+			fflush(stdout);
+		}
+
+		close(meta_fd);
+	}
+	else {
+		printf("No Files\n");
+		fflush(stdout);
+	}
+}
 
 open_output *
 open_file_1_svc(open_input *argp, struct svc_req *rqstp)
 {
 	static open_output  result;
+	int new_fd;
+	int file_open = 0;
+	file_info fi;
+	file_table_entry new_entry;
+	init_disk();
 
-	if (server_file_table.num_files == MAX_FILES){
-        sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
-    }
-	
-	server_file_table.num_files++;
+	// Check if file is already open
+	for (int i=0;i<num_open_files;i++){
+		if (strcmp(server_file_table.files[i].file_name, argp->file_name) == 0){
+			result.fd=server_file_table.files[i].fd;
+			file_open = 1;
+			break;
+		}
+	}
 
-	result.fd=20; //TODO Figure out what to put here
-	result.out_msg.out_msg_len=20; //TODO Figure out where this number came from
-	
+	if (!file_open){
+
+		if (files_fd == 0){
+			files_fd = open("files.dat", O_RDONLY);
+		}
+		// FIXME make sure reading in corrct chunk of file info
+		if (!file_exists(argp->file_name, argp->user_name, &fi)){
+			
+			int meta_fd = open("metadata.dat", O_WRONLY);
+			strcpy(fi.file_name, argp->file_name);
+			strcpy(fi.user_name, argp->user_name);
+			fi.start_block = lseek(files_fd, 0, SEEK_CUR) / BLOCK_SIZE;
+
+			lseek(files_fd, FILE_SIZE_BYTES, SEEK_CUR);
+
+			pwrite(meta_fd, &fi, sizeof(fi), fi.start_block * BLOCK_SIZE);
+		}
+
+		strcpy(new_entry.file_name, argp->file_name);
+		strcpy(new_entry.user_name, argp->user_name);
+
+		new_entry.fd = fi.start_block; //FIXME Make sure this is okay
+		new_entry.fptr = fi.start_block * BLOCK_SIZE;
+
+		result.fd= new_entry.fd;
+
+		server_file_table.files[num_open_files] = new_entry; 
+
+		num_open_files++;
+	}
+
+	result.out_msg.out_msg_len = sizeof(argp->file_name);
 	free(result.out_msg.out_msg_val);
 	result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
-    strcpy(result.out_msg.out_msg_val, (*argp).file_name);
-	printf("In server: filename recieved:%s\n",argp->file_name);
-	printf("In server username received:%s\n",argp->user_name);
+	strcpy(result.out_msg.out_msg_val, argp->file_name);
 
-	// FIXME: result.out_msg.out_msg_val = ???; Figure out how to set out message length
-	// FIXME strcpy(result.out_msg.out_msg_val, (*argp).file_name);
-	// TODO ask prof if I need to populate anything other than result.fd for this server
+	// printf("In server: filename recieved:%s\n",argp->file_name);
+	// printf("In server username received:%s\n",argp->user_name);
 
+	//print_file_table(server_file_table);
 
-	// FIXME: make sure argument types correct for strcpy 
-    // strcpy(server_file_table.files[server_file_table.num_files - 1].file_name, (*argp).file_name);
-    // server_file_table.files[server_file_table.num_files - 1].fd = result.fd;
-    // strcpy(server_file_table.files[server_file_table.num_files - 1].user_name, getpwuid(getuid())->pw_name);
-
-	// strcpy(server_file_table.files[0].file_name, (*argp).file_name);
-    // server_file_table.files[0].fd = result.fd;
-    // strcpy(server_file_table.files[0].user_name, getpwuid(getuid())->pw_name);
-
-	// printf("File %s added to file table", server_file_table.files[0].file_name);
 	return &result;
+
+
+	//TODO Figure out what to put in open output out msg
+	// result.out_msg.out_msg_len=; 
+
 }
 
 read_output *
@@ -81,8 +178,17 @@ read_file_1_svc(read_input *argp, struct svc_req *rqstp)
 {
 	static read_output  result;
 
+	/*
+	Search through file table
+		assume files.dat is already open from Open call
+		use file table entry info to read from files.dat
+	
+	*/
+
+
+
 	// TODO Check if username matches for permissions purposes
-    int num_bytes = read((* argp).fd, result.buffer.buffer_val, (* argp).numbytes);
+    int num_bytes = read(argp->fd, result.buffer.buffer_val, (* argp).numbytes);
 
 	// FIXME Make sure don't need to return any more info to client
     if (num_bytes = -1){
@@ -103,7 +209,9 @@ write_file_1_svc(write_input *argp, struct svc_req *rqstp)
 	static write_output  result;
 
 	// TODO Check if username matches for permissions purposes
-	printf("Attempting to write to file.");
+	// printf("Attempting to write to file.");
+	// fflush(stdout);
+
 	int bytes_written = write(argp->fd, argp->buffer.buffer_val, argp->numbytes);
 	if (bytes_written == -1){
 		result.out_msg.out_msg_len = sizeof(strerror(errno));
@@ -118,7 +226,7 @@ list_files_1_svc(list_input *argp, struct svc_req *rqstp)
 {
 	static list_output  result;
 
-	for (int i=0;i<server_file_table.num_files;i++){
+	for (int i=0;i<MAX_OPEN_FILES;i++){
         if (strcmp(server_file_table.files[i].user_name, argp->user_name) == 0){
             sprintf(result.out_msg.out_msg_val, "%s", server_file_table.files[i].file_name); //FIXME Append to out_msg instead of just overwriting everytime
         }

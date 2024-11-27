@@ -66,6 +66,7 @@ int Write(int file_descriptor, char* msg, int msgLen){
 	write_file_1_arg.numbytes = msgLen;
 	
 	write_file_1_arg.buffer.buffer_val = (char *) malloc(msgLen);
+	write_file_1_arg.buffer.buffer_len = msgLen+1;
 	strncpy(write_file_1_arg.buffer.buffer_val, msg, msgLen);
 	
 	result_3 = write_file_1(&write_file_1_arg, clnt);
@@ -80,7 +81,7 @@ int Write(int file_descriptor, char* msg, int msgLen){
 void List(){
 	list_output  *result_4;
 	list_input  list_files_1_arg;
-	
+
 	strcpy(list_files_1_arg.user_name, (getpwuid(getuid()))->pw_name);
 	result_4 = list_files_1(&list_files_1_arg, clnt);
 	if (result_4 == (list_output *) NULL) {
@@ -94,10 +95,10 @@ void List(){
 void Delete(char* file_to_delete){
 	delete_output  *result_5;
 	delete_input  delete_file_1_arg;
-	
+
 	strcpy(delete_file_1_arg.file_name, file_to_delete);
 	strcpy(delete_file_1_arg.user_name, (getpwuid(getuid()))->pw_name);
-	
+
 	result_5 = delete_file_1(&delete_file_1_arg, clnt);
 	if (result_5 == (delete_output *) NULL) {
 		clnt_perror (clnt, "call failed");
@@ -154,11 +155,14 @@ main (int argc, char *argv[])
 	// SAMPLE CODE FROM PROJECT DESCRIPTION
 	// ------------------------------------------------
 	int i,j;
-	int fd1,fd2;
+	int fd1,fd2,fd3;
 	char buffer[100];
 	fd1=Open("File1"); // opens the file "File1"
+	fd2 = Open("File1");
+	// fd2 =Open("File2");
+	// fd3 =Open("File3");
 	//for (i=0; i< 20;i++){
-	Write(fd1, "This is a test program for cs570 assignment 4", 15);
+	//Write(fd1, "This is a test program for cs570 assignment 4", 15);
 	//}
 	// Close(fd1);
 	// fd2=Open("File1");

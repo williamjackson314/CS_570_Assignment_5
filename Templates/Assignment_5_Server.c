@@ -24,6 +24,7 @@ typedef struct file_table {
     int num_files;
 } file_table;
 
+
 int main(){
 
 
@@ -33,7 +34,6 @@ int main(){
 }
 
 
-// Function allocating space on linux virtual disk for the filetable
 int create_disk(){
     int fd;
 
