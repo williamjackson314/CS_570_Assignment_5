@@ -38,7 +38,7 @@ int Open(char* file_to_open){
 	return result_1->fd;
 }
 
-int Read(int file_descriptor, char* buf, int numBytes){
+void Read(int file_descriptor, char* buf, int numBytes){
 	read_output  *result_2;
 	read_input  read_file_1_arg;
 
@@ -50,13 +50,11 @@ int Read(int file_descriptor, char* buf, int numBytes){
 	if (result_2 == (read_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
-
-	strcpy(buf, result_2->buffer.buffer_val);
-	//TODO return the number of bytes read
 	
+	strcpy(buf, result_2->buffer.buffer_val);
 }
 
-int Write(int file_descriptor, char* msg, int msgLen){
+void Write(int file_descriptor, char* msg, int msgLen){
 	write_output  *result_3;
 	write_input  write_file_1_arg;
   	
@@ -158,17 +156,15 @@ main (int argc, char *argv[])
 	int fd1,fd2,fd3;
 	char buffer[100];
 	fd1=Open("File1"); // opens the file "File1"
-	fd2 = Open("File1");
-	// fd2 =Open("File2");
-	// fd3 =Open("File3");
+
 	//for (i=0; i< 20;i++){
-	//Write(fd1, "This is a test program for cs570 assignment 4", 15);
+	Write(fd1, "This is a test program for cs570 assignment 4", 15);
 	//}
 	// Close(fd1);
-	// fd2=Open("File1");
+	//fd2=Open("File1");
 	// for (j=0; j< 20;j++){
-	// Read(fd2, buffer, 10);
-	// printf("%s\n",buffer);
+	Read(fd2, buffer, 10);
+	printf("%s\n",buffer);
 	// }
 	// Seek (fd2,40);
 	// Read(fd2, buffer, 20);

@@ -127,19 +127,21 @@ open_file_1_svc(open_input *argp, struct svc_req *rqstp)
 	if (!file_open){
 
 		if (files_fd == 0){
-			files_fd = open("files.dat", O_RDONLY);
+			files_fd = open("files.dat", O_RDWR);
+			printf("Files.dat descriptor = %d\n", files_fd);
 		}
 		// FIXME make sure reading in corrct chunk of file info
 		if (!file_exists(argp->file_name, argp->user_name, &fi)){
 			
-			int meta_fd = open("metadata.dat", O_WRONLY);
+			int meta_fd = open("metadata.dat", O_RDWR);
 			strcpy(fi.file_name, argp->file_name);
 			strcpy(fi.user_name, argp->user_name);
 			fi.start_block = lseek(files_fd, 0, SEEK_CUR) / BLOCK_SIZE;
 
 			lseek(files_fd, FILE_SIZE_BYTES, SEEK_CUR);
 
-			pwrite(meta_fd, &fi, sizeof(fi), fi.start_block * BLOCK_SIZE);
+			pwrite(meta_fd, &fi, sizeof(fi), fi.start_block * BLOCK_SIZE); //TODO error checking here
+			close(meta_fd); //TODO error checking here
 		}
 
 		strcpy(new_entry.file_name, argp->file_name);
@@ -163,7 +165,7 @@ open_file_1_svc(open_input *argp, struct svc_req *rqstp)
 	// printf("In server: filename recieved:%s\n",argp->file_name);
 	// printf("In server username received:%s\n",argp->user_name);
 
-	//print_file_table(server_file_table);
+	print_file_table(server_file_table);
 
 	return &result;
 
@@ -178,23 +180,28 @@ read_file_1_svc(read_input *argp, struct svc_req *rqstp)
 {
 	static read_output  result;
 
+	for (int i=0; i<num_open_files;i++){
+		if (argp->fd == server_file_table.files[i].fd){
+			
+			int bytes_read = pread(files_fd, &result.buffer.buffer_val, argp->numbytes, server_file_table.files[i].fptr);
+			if (bytes_read == -1){
+				printf("%s", strerror(errno));
+				fflush(stdout);
+
+				result.out_msg.out_msg_len = sizeof(strerror(errno));
+				free(result.out_msg.out_msg_val);
+				result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
+				sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+			}
+		}
+	}
+
 	/*
 	Search through file table
 		assume files.dat is already open from Open call
 		use file table entry info to read from files.dat
 	
 	*/
-
-
-
-	// TODO Check if username matches for permissions purposes
-    int num_bytes = read(argp->fd, result.buffer.buffer_val, (* argp).numbytes);
-
-	// FIXME Make sure don't need to return any more info to client
-    if (num_bytes = -1){
-        sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
-    }
-
 
     // TODO Make sure this is returning proper error if trying to read past the
     // end of file, file descriptor passed was not correct,
@@ -207,15 +214,30 @@ write_output *
 write_file_1_svc(write_input *argp, struct svc_req *rqstp)
 {
 	static write_output  result;
+	int bytes_written;
 
 	// TODO Check if username matches for permissions purposes
 	// printf("Attempting to write to file.");
 	// fflush(stdout);
 
-	int bytes_written = write(argp->fd, argp->buffer.buffer_val, argp->numbytes);
-	if (bytes_written == -1){
-		result.out_msg.out_msg_len = sizeof(strerror(errno));
-		sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+	// find file in file_table using fd, if not there, return an error msg
+	// Use fptr to write to files.dat
+
+	for (int i=0; i<num_open_files;i++){
+		if (argp->fd == server_file_table.files[i].fd){
+			
+			bytes_written = pwrite(files_fd, argp->buffer.buffer_val, 1, server_file_table.files[i].fptr);//argp->numbytes, server_file_table.files[i].fptr);
+			server_file_table.files[i].fptr += bytes_written;
+
+			if (bytes_written == -1){
+				printf("%s", strerror(errno));
+				fflush(stdout);
+				result.out_msg.out_msg_len = sizeof(strerror(errno));
+				free(result.out_msg.out_msg_val);
+				result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
+				sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+			}
+		}
 	}
 
 	return &result;
