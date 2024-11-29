@@ -51,7 +51,8 @@ void Read(int file_descriptor, char* buf, int numBytes){
 		clnt_perror (clnt, "call failed");
 	}
 	
-	strcpy(buf, result_2->buffer.buffer_val);
+	printf("Read: %s\n", result_2->buffer.buffer_val);
+	strncpy(buf, result_2->buffer.buffer_val, numBytes);
 }
 
 void Write(int file_descriptor, char* msg, int msgLen){
@@ -87,7 +88,6 @@ void List(){
 	}
 
 	printf("Files in directory: %s", result_4->out_msg.out_msg_val);
-	//TODO Figure out what list returns
 }
 
 void Delete(char* file_to_delete){
@@ -117,11 +117,9 @@ void Close(int file_descriptor) {
 	if (result_6 == (close_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
-
-	//TODO Figure out if close returns anything
 }
 
-int Seek(int file_descriptor, int pos){
+void Seek(int file_descriptor, int pos){
 	seek_output  *result_7;
 	seek_input  seek_position_1_arg;
 
@@ -134,7 +132,7 @@ int Seek(int file_descriptor, int pos){
 		clnt_perror (clnt, "call failed");
 	}
 
-	//TODO Figure out what seek returns
+	//TODO Print out message if success field is 0
 }
 
 
@@ -156,21 +154,23 @@ main (int argc, char *argv[])
 	int fd1,fd2,fd3;
 	char buffer[100];
 	fd1=Open("File1"); // opens the file "File1"
-
 	//for (i=0; i< 20;i++){
 	Write(fd1, "This is a test program for cs570 assignment 4", 15);
 	//}
-	// Close(fd1);
-	//fd2=Open("File1");
+	//fd2=Open("File2");
+	//Close(fd1);
+	//Seek (fd1,40);
+	//fd2=Open("File2");
+	//List();
 	// for (j=0; j< 20;j++){
-	Read(fd2, buffer, 10);
+	Read(fd1, buffer, 10);
 	printf("%s\n",buffer);
 	// }
-	// Seek (fd2,40);
+
 	// Read(fd2, buffer, 20);
 	// printf("%s\n",buffer);
 	// Close(fd2);
-	// Delete("File1");
+	//Delete("File1");
 	// List();
 	// ------------------------------------------------
 

@@ -21,7 +21,6 @@
 #define FILE_SIZE_BLOCKS 64    // Blocks
 #define FILE_SIZE_BYTES (FILE_SIZE_BLOCKS * BLOCK_SIZE)
 #define TOTAL_FILE_SIZE (FILE_SIZE_BYTES * MAX_FILES)
-#define LATEST_FILE server_file_table.files[server_file_table.num_files - 1]
 
 // Data structure for file info
 typedef struct file_info {
@@ -72,6 +71,7 @@ int file_exists(char* file_name, char* user_name, file_info* fi){
 
 void print_file_table(file_table ft){
 	
+	printf("--------------------------------------------------\n");
 	printf("File Table: \n");
 	for (int i=0;i<num_open_files;i++){
 		printf("--------------------------------------------------\n");
@@ -81,6 +81,7 @@ void print_file_table(file_table ft){
 		printf("File Pointer: %d\n", ft.files[i].fptr);
 
 	}
+	printf("--------------------------------------------------\n\n");
 }
 
 //BUG Does not work, causes seg fault
@@ -158,14 +159,12 @@ open_file_1_svc(open_input *argp, struct svc_req *rqstp)
 	}
 
 	result.out_msg.out_msg_len = sizeof(argp->file_name);
-	free(result.out_msg.out_msg_val);
+	
 	result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
 	strcpy(result.out_msg.out_msg_val, argp->file_name);
 
-	// printf("In server: filename recieved:%s\n",argp->file_name);
-	// printf("In server username received:%s\n",argp->user_name);
-
-	print_file_table(server_file_table);
+	printf("In server: filename recieved:%s\n",argp->file_name);
+	printf("In server username received:%s\n",argp->user_name);
 
 	return &result;
 
@@ -180,18 +179,39 @@ read_file_1_svc(read_input *argp, struct svc_req *rqstp)
 {
 	static read_output  result;
 
+	printf("Attempting to Read from file.");
+	fflush(stdout);
+
+	result.buffer.buffer_val = (char *) malloc(argp->numbytes);
+
 	for (int i=0; i<num_open_files;i++){
 		if (argp->fd == server_file_table.files[i].fd){
 			
-			int bytes_read = pread(files_fd, &result.buffer.buffer_val, argp->numbytes, server_file_table.files[i].fptr);
+			int bytes_read = pread(files_fd, result.buffer.buffer_val, argp->numbytes, server_file_table.files[i].fptr);
+			printf("Bytes Read: %d\n", bytes_read);
+			printf("Bytes Read: %s", result.buffer.buffer_val);
+			fflush(stdout);
+			
 			if (bytes_read == -1){
-				printf("%s", strerror(errno));
-				fflush(stdout);
+				result.success =0 ;
+// 				printf("Hecpoint 2");
 
-				result.out_msg.out_msg_len = sizeof(strerror(errno));
-				free(result.out_msg.out_msg_val);
-				result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
-				sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+// //				printf("%s", strerror(errno));
+// 				fflush(stdout);
+
+// 				result.out_msg.out_msg_len = sizeof(strerror(errno));
+// 				free(result.out_msg.out_msg_val);
+// 				result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
+// 				sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+			}
+			else{
+				result.success = 1;
+				result.buffer.buffer_len = bytes_read;
+				
+				// result.out_msg.out_msg_len = sizeof("Read Success");
+				// free(result.out_msg.out_msg_val);
+				// result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
+				// sprintf(result.out_msg.out_msg_val, "Read Success");
 			}
 		}
 	}
@@ -217,16 +237,17 @@ write_file_1_svc(write_input *argp, struct svc_req *rqstp)
 	int bytes_written;
 
 	// TODO Check if username matches for permissions purposes
-	// printf("Attempting to write to file.");
-	// fflush(stdout);
+	printf("Attempting to write to file.");
+	fflush(stdout);
 
 	// find file in file_table using fd, if not there, return an error msg
 	// Use fptr to write to files.dat
 
+
 	for (int i=0; i<num_open_files;i++){
 		if (argp->fd == server_file_table.files[i].fd){
 			
-			bytes_written = pwrite(files_fd, argp->buffer.buffer_val, 1, server_file_table.files[i].fptr);//argp->numbytes, server_file_table.files[i].fptr);
+			bytes_written = pwrite(files_fd, argp->buffer.buffer_val, argp->numbytes, server_file_table.files[i].fptr);//argp->numbytes, server_file_table.files[i].fptr);
 			server_file_table.files[i].fptr += bytes_written;
 
 			if (bytes_written == -1){
@@ -248,11 +269,23 @@ list_files_1_svc(list_input *argp, struct svc_req *rqstp)
 {
 	static list_output  result;
 
-	for (int i=0;i<MAX_OPEN_FILES;i++){
+	result.out_msg.out_msg_val=(char *) malloc(FILE_NAME_SIZE*num_open_files); 
+
+//FIXME List is returning null pointer, and overwriting itself with each iteration of the loop below.
+	
+	for (int i=0;i<num_open_files;i++){
         if (strcmp(server_file_table.files[i].user_name, argp->user_name) == 0){
-            sprintf(result.out_msg.out_msg_val, "%s", server_file_table.files[i].file_name); //FIXME Append to out_msg instead of just overwriting everytime
-        }
+            printf("Listing: %s\n", server_file_table.files[i].file_name);
+			fflush(stdout);
+			snprintf(result.out_msg.out_msg_val, sizeof(server_file_table.files[i].file_name), "%s", server_file_table.files[i].file_name);
+			printf("Result contents: %s", result.out_msg.out_msg_val);
+			fflush(stdout);
+			//FIXME Add check to make sure out message buffer doesn't get overfilled
+			result.out_msg.out_msg_val += sizeof(server_file_table.files[i].file_name);
+		}
     }
+
+	result.out_msg.out_msg_len = sizeof(result.out_msg.out_msg_val);
 
 	return &result;
 }
@@ -261,12 +294,13 @@ delete_output *
 delete_file_1_svc(delete_input *argp, struct svc_req *rqstp)
 {
 	static delete_output  result;
+	file_info fi;
+	const void *buf = NULL;
 
-	// TODO Check if username matches for permissions purposes
-    int val = remove(argp->file_name);
-    if (val == -1){
-        sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
-    }
+	if (file_exists(argp->file_name, argp->user_name, &fi)){
+		pwrite(files_fd, buf, FILE_SIZE_BYTES, fi.start_block*BLOCK_SIZE);
+	}
+
 
 	return &result;
 }
@@ -275,12 +309,21 @@ close_output *
 close_file_1_svc(close_input *argp, struct svc_req *rqstp)
 {
 	static close_output  result;
+	int index_to_delete;
+	
+	for (int i=0;i<num_open_files;i++){
+        if ((strcmp(server_file_table.files[i].user_name, argp->user_name) == 0) && (server_file_table.files[i].fd == argp->fd)){
+			index_to_delete = i;
+			break;
+		}
+	}
 
-	// TODO Check if username matches for permissions purposes
-    int val = close(argp->fd);
-    if (val == -1){
-        sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
-    }
+	for (int i=index_to_delete;i<num_open_files-1;i++){
+		server_file_table.files[i] = server_file_table.files[i+1];
+	}
+	num_open_files--;
+
+	print_file_table(server_file_table);
 
 	return &result;
 }
@@ -289,9 +332,16 @@ seek_output *
 seek_position_1_svc(seek_input *argp, struct svc_req *rqstp)
 {
 	static seek_output  result;
+	result.success = 0;
+	
+	for (int i=0;i<num_open_files;i++){
+		if ((argp->fd == server_file_table.files[i].fd) && (strcmp(argp->user_name, server_file_table.files[i].user_name) == 0)){
+			server_file_table.files[i].fptr = argp->position; //FIXME verify no checking is needed to make sure this is set to within user's directory
+			result.success = 1;
+		}
+	}
 
-	// TODO Check if username matches for permissions purposes
-	lseek(argp->fd, argp->position, SEEK_CUR);
+	//TODO add error message if success = 0
 
 	return &result;
 }
