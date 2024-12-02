@@ -46,10 +46,14 @@ int files_fd = 0;
 // --------------------------------------------------------------------
 
 void init_disk(){
-	if ((access("files.dat", F_OK) == 0) && (access("files_metadata.dat", F_OK) == 0)) {}
+	if ((access("files.dat", F_OK) == 0) && (access("metadata.dat", F_OK) == 0)) {}
 	else {
 		ftruncate(creat("files.dat", 0666), TOTAL_FILE_SIZE);
 		ftruncate(creat("metadata.dat", 0666), sizeof(file_info) * MAX_FILES);
+	}
+
+	if (files_fd == 0){
+		files_fd = open("files.dat", O_RDWR|O_APPEND);
 	}
 }
 
@@ -60,8 +64,6 @@ int file_exists(char* file_name, char* user_name, file_info* fi){
 	while (read(meta_fd, fi, sizeof(fi)) > 0){	
 		if ((strcmp(fi->user_name, user_name) == 0) && (strcmp(fi->file_name, file_name) == 0)){
 			exists = 1;
-			printf("File Exists");
-			fflush(stdout);
 		}
 	}
 
@@ -90,19 +92,15 @@ void print_metadata(){
 	char* buf;
 	if (num_open_files > 0){
 		int bytes_read = read(meta_fd, buf, num_open_files*sizeof(file_info));
-		
-		printf("Bytes read: %d", bytes_read);
-		fflush(stdout);
+
 		if (bytes_read > 0){
 			printf("%.*s", bytes_read, buf);
-			fflush(stdout);
 		}
 
 		close(meta_fd);
 	}
 	else {
 		printf("No Files\n");
-		fflush(stdout);
 	}
 }
 
@@ -127,19 +125,15 @@ open_file_1_svc(open_input *argp, struct svc_req *rqstp)
 
 	if (!file_open){
 
-		if (files_fd == 0){
-			files_fd = open("files.dat", O_RDWR);
-			printf("Files.dat descriptor = %d\n", files_fd);
-		}
 		// FIXME make sure reading in corrct chunk of file info
 		if (!file_exists(argp->file_name, argp->user_name, &fi)){
 			
 			int meta_fd = open("metadata.dat", O_RDWR);
 			strcpy(fi.file_name, argp->file_name);
 			strcpy(fi.user_name, argp->user_name);
-			fi.start_block = lseek(files_fd, 0, SEEK_CUR) / BLOCK_SIZE;
+			fi.start_block = 0;//lseek(files_fd, 0, SEEK_CUR) / BLOCK_SIZE;
 
-			lseek(files_fd, FILE_SIZE_BYTES, SEEK_CUR);
+			//lseek(files_fd, FILE_SIZE_BYTES, SEEK_CUR);
 
 			pwrite(meta_fd, &fi, sizeof(fi), fi.start_block * BLOCK_SIZE); //TODO error checking here
 			close(meta_fd); //TODO error checking here
@@ -178,43 +172,42 @@ read_output *
 read_file_1_svc(read_input *argp, struct svc_req *rqstp)
 {
 	static read_output  result;
+	init_disk();
 
-	printf("Attempting to Read from file.");
-	fflush(stdout);
-
-	result.buffer.buffer_val = (char *) malloc(argp->numbytes);
+	result.buffer.buffer_len = sizeof(argp->numbytes);
+	result.buffer.buffer_val = (char *) malloc(result.buffer.buffer_len);
 
 	for (int i=0; i<num_open_files;i++){
 		if (argp->fd == server_file_table.files[i].fd){
 			
-			int bytes_read = pread(files_fd, result.buffer.buffer_val, argp->numbytes, server_file_table.files[i].fptr);
-			printf("Bytes Read: %d\n", bytes_read);
-			printf("Bytes Read: %s", result.buffer.buffer_val);
-			fflush(stdout);
+			int bytes_read = read(files_fd, result.buffer.buffer_val, argp->numbytes);
+
+			result.buffer.buffer_val[bytes_read] = '\0';
+
+			// int bytes_read = 6;
+			// strcpy(result.buffer.buffer_val, "Hello\0"); 
+			// int bytes_read = pread(files_fd, result.buffer.buffer_val, argp->numbytes, server_file_table.files[i].fptr);
 			
 			if (bytes_read == -1){
 				result.success =0 ;
-// 				printf("Hecpoint 2");
 
-// //				printf("%s", strerror(errno));
-// 				fflush(stdout);
-
-// 				result.out_msg.out_msg_len = sizeof(strerror(errno));
-// 				free(result.out_msg.out_msg_val);
-// 				result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
-// 				sprintf(result.out_msg.out_msg_val, "%s", strerror(errno));
+				result.out_msg.out_msg_len = sizeof(strerror(errno));
+				result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
+				snprintf(result.out_msg.out_msg_val, result.out_msg.out_msg_len, "%s", strerror(errno));
 			}
 			else{
 				result.success = 1;
 				result.buffer.buffer_len = bytes_read;
 				
-				// result.out_msg.out_msg_len = sizeof("Read Success");
-				// free(result.out_msg.out_msg_val);
-				// result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
-				// sprintf(result.out_msg.out_msg_val, "Read Success");
+				result.out_msg.out_msg_len = sizeof("Read Success");
+	
+				result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
+				snprintf(result.out_msg.out_msg_val, result.out_msg.out_msg_len, "Read Success");
 			}
 		}
 	}
+	return &result;
+
 
 	/*
 	Search through file table
@@ -226,7 +219,7 @@ read_file_1_svc(read_input *argp, struct svc_req *rqstp)
     // TODO Make sure this is returning proper error if trying to read past the
     // end of file, file descriptor passed was not correct,
 
-	return &result;
+
 }
 
 // TODO Implement write file function
@@ -235,10 +228,8 @@ write_file_1_svc(write_input *argp, struct svc_req *rqstp)
 {
 	static write_output  result;
 	int bytes_written;
-
+	init_disk();
 	// TODO Check if username matches for permissions purposes
-	printf("Attempting to write to file.");
-	fflush(stdout);
 
 	// find file in file_table using fd, if not there, return an error msg
 	// Use fptr to write to files.dat
@@ -247,12 +238,14 @@ write_file_1_svc(write_input *argp, struct svc_req *rqstp)
 	for (int i=0; i<num_open_files;i++){
 		if (argp->fd == server_file_table.files[i].fd){
 			
-			bytes_written = pwrite(files_fd, argp->buffer.buffer_val, argp->numbytes, server_file_table.files[i].fptr);//argp->numbytes, server_file_table.files[i].fptr);
+			bytes_written = write(files_fd, argp->buffer.buffer_val, argp->numbytes);
+
+			// bytes_written = pwrite(files_fd, argp->buffer.buffer_val, argp->numbytes, server_file_table.files[i].fptr);//argp->numbytes, server_file_table.files[i].fptr);
 			server_file_table.files[i].fptr += bytes_written;
 
 			if (bytes_written == -1){
 				printf("%s", strerror(errno));
-				fflush(stdout);
+
 				result.out_msg.out_msg_len = sizeof(strerror(errno));
 				free(result.out_msg.out_msg_val);
 				result.out_msg.out_msg_val=(char *) malloc(result.out_msg.out_msg_len);
@@ -268,6 +261,7 @@ list_output *
 list_files_1_svc(list_input *argp, struct svc_req *rqstp)
 {
 	static list_output  result;
+	init_disk();
 
 	result.out_msg.out_msg_val=(char *) malloc(FILE_NAME_SIZE*num_open_files); 
 
@@ -276,10 +270,10 @@ list_files_1_svc(list_input *argp, struct svc_req *rqstp)
 	for (int i=0;i<num_open_files;i++){
         if (strcmp(server_file_table.files[i].user_name, argp->user_name) == 0){
             printf("Listing: %s\n", server_file_table.files[i].file_name);
-			fflush(stdout);
+
 			snprintf(result.out_msg.out_msg_val, sizeof(server_file_table.files[i].file_name), "%s", server_file_table.files[i].file_name);
 			printf("Result contents: %s", result.out_msg.out_msg_val);
-			fflush(stdout);
+
 			//FIXME Add check to make sure out message buffer doesn't get overfilled
 			result.out_msg.out_msg_val += sizeof(server_file_table.files[i].file_name);
 		}
@@ -296,6 +290,7 @@ delete_file_1_svc(delete_input *argp, struct svc_req *rqstp)
 	static delete_output  result;
 	file_info fi;
 	const void *buf = NULL;
+	init_disk();
 
 	if (file_exists(argp->file_name, argp->user_name, &fi)){
 		pwrite(files_fd, buf, FILE_SIZE_BYTES, fi.start_block*BLOCK_SIZE);
@@ -310,6 +305,7 @@ close_file_1_svc(close_input *argp, struct svc_req *rqstp)
 {
 	static close_output  result;
 	int index_to_delete;
+	init_disk();
 	
 	for (int i=0;i<num_open_files;i++){
         if ((strcmp(server_file_table.files[i].user_name, argp->user_name) == 0) && (server_file_table.files[i].fd == argp->fd)){
@@ -323,8 +319,6 @@ close_file_1_svc(close_input *argp, struct svc_req *rqstp)
 	}
 	num_open_files--;
 
-	print_file_table(server_file_table);
-
 	return &result;
 }
 
@@ -332,6 +326,8 @@ seek_output *
 seek_position_1_svc(seek_input *argp, struct svc_req *rqstp)
 {
 	static seek_output  result;
+	init_disk();
+
 	result.success = 0;
 	
 	for (int i=0;i<num_open_files;i++){

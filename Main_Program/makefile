@@ -1,8 +1,8 @@
 all: client server
 client : client.o ssnfs_clnt.o  ssnfs_xdr.o  
-	gcc -o client client.o ssnfs_clnt.o ssnfs_xdr.o -I/usr/include/tirpc -ltirpc
+	gcc -o client client.o ssnfs_clnt.o ssnfs_xdr.o -I/usr/include/tirpc -ltirpc -Wall
 server: ssnfs_xdr.o  ssnfs_svc.o server.o
-	gcc -o server server.o ssnfs_svc.o ssnfs_xdr.o -I/usr/include/tirpc -ltirpc
+	gcc -o server server.o ssnfs_svc.o ssnfs_xdr.o -I/usr/include/tirpc -ltirpc -Wall
 client.o: ssnfs.h client.c 
 	gcc -c client.c -I/usr/include/tirpc -ltirpc
 server.o: ssnfs.h server.c

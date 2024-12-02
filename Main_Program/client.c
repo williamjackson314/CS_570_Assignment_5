@@ -50,8 +50,7 @@ void Read(int file_descriptor, char* buf, int numBytes){
 	if (result_2 == (read_output *) NULL) {
 		clnt_perror (clnt, "call failed");
 	}
-	
-	printf("Read: %s\n", result_2->buffer.buffer_val);
+
 	strncpy(buf, result_2->buffer.buffer_val, numBytes);
 }
 
@@ -151,26 +150,23 @@ main (int argc, char *argv[])
 	// SAMPLE CODE FROM PROJECT DESCRIPTION
 	// ------------------------------------------------
 	int i,j;
-	int fd1,fd2,fd3;
+	int fd1,fd2;
 	char buffer[100];
 	fd1=Open("File1"); // opens the file "File1"
-	//for (i=0; i< 20;i++){
+	// for (i=0; i< 20;i++){
 	Write(fd1, "This is a test program for cs570 assignment 4", 15);
-	//}
-	//fd2=Open("File2");
-	//Close(fd1);
-	//Seek (fd1,40);
-	//fd2=Open("File2");
-	//List();
-	// for (j=0; j< 20;j++){
-	Read(fd1, buffer, 10);
-	printf("%s\n",buffer);
 	// }
-
+	// Close(fd1);
+	// fd2=Open("File1");
+	// for (j=0; j< 20;j++){
+	Read(fd2, buffer, 10);
+	// printf("%s\n",buffer);
+	// }
+	// Seek (fd2,40);
 	// Read(fd2, buffer, 20);
 	// printf("%s\n",buffer);
 	// Close(fd2);
-	//Delete("File1");
+	// Delete("File1");
 	// List();
 	// ------------------------------------------------
 
